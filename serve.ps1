@@ -1,32 +1,32 @@
 <#
 .SYNOPSIS
-    Lightweight HTTP static file server for the Timbre Space Sandbox.
+    Robust static HTTP web server for the Timbre Space Sandbox using System.Net.Sockets.TcpListener.
 
 .DESCRIPTION
-    Hosts the sandbox web application locally using .NET HttpListener.
-    Serves HTML, CSS, JavaScript, JSON, and audio files with proper MIME types.
+    Serves the sandbox web application locally over TCP without external web framework dependencies.
+    Handles HTTP GET requests, MIME types, and header responses.
 
 .PARAMETER Port
-    TCP port number to bind the HTTP listener (default: 8080).
+    TCP port to bind (default: 8765).
 
 .PARAMETER RootDirectory
-    Filesystem path containing the static web files (default: ./sandbox).
+    Folder containing static web files (default: ./sandbox).
 
 .EXAMPLE
-    .\serve.ps1 -Port 8080
+    .\serve.ps1 -Port 8765
 #>
 
 param(
-    [int]$Port = 8080,
+    [int]$Port = 8765,
     [string]$RootDirectory = "$PSScriptRoot\sandbox"
 )
 
 function Get-ContentType {
     <#
     .SYNOPSIS
-        Determines the HTTP Content-Type header based on file extension.
+        Resolves MIME Content-Type header from file extension.
     .PARAMETER FilePath
-        Path to the requested target file.
+        Absolute or relative path to file.
     .OUTPUTS
         MIME type string.
     #>
@@ -54,85 +54,101 @@ function Get-ContentType {
     return "application/octet-stream"
 }
 
-function Start-StaticServer {
+function Start-StaticTcpServer {
     <#
     .SYNOPSIS
-        Starts the HttpListener loop and handles incoming HTTP GET requests.
+        Initializes TcpListener and handles HTTP client connections.
     .PARAMETER ListenPort
-        Port number to listen on.
+        Port number to bind.
     .PARAMETER WebRoot
-        Root directory for static files.
+        Folder containing files to serve.
     #>
     param(
         [int]$ListenPort,
         [string]$WebRoot
     )
 
-    $listener = New-Object System.Net.HttpListener
-    $url = "http://localhost:$ListenPort/"
-    $listener.Prefixes.Add($url)
+    $ip = [System.Net.IPAddress]::Loopback
+    $server = [System.Net.Sockets.TcpListener]::new($ip, $ListenPort)
 
     try {
-        $listener.Start()
+        $server.Start()
+        $url = "http://localhost:$ListenPort/"
         Write-Host "==========================================================" -ForegroundColor Cyan
-        Write-Host " Timbre Space Sandbox Server Active" -ForegroundColor Green
-        Write-Host " URL: $url" -ForegroundColor Yellow
-        Write-Host " Serving: $WebRoot" -ForegroundColor Gray
-        Write-Host " Press Ctrl+C to stop the server" -ForegroundColor Gray
+        Write-Host " Timbre Space Sandbox Active at: $url" -ForegroundColor Green
+        Write-Host " Serving files from: $WebRoot" -ForegroundColor Gray
+        Write-Host " Press Ctrl+C to terminate." -ForegroundColor Gray
         Write-Host "==========================================================" -ForegroundColor Cyan
 
-        while ($listener.IsListening) {
-            $context = $listener.GetContext()
-            $request = $context.Request
-            $response = $context.Response
+        while ($true) {
+            $client = $server.AcceptTcpClient()
+            $stream = $client.GetStream()
+            $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8)
 
-            $relativePath = $request.Url.LocalPath.TrimStart('/')
-            if ([string]::IsNullOrWhiteSpace($relativePath) -or $relativePath -eq "/") {
-                $relativePath = "index.html"
+            $requestLine = $reader.ReadLine()
+            if ([string]::IsNullOrWhiteSpace($requestLine)) {
+                $client.Close()
+                continue
             }
 
-            # Normalize path and prevent directory traversal
-            $targetPath = [System.IO.Path]::GetFullPath((Join-Path $WebRoot $relativePath))
+            # Parse HTTP method and target URI
+            $parts = $requestLine.Split(' ')
+            $method = $parts[0]
+            $rawPath = if ($parts.Length -gt 1) { $parts[1] } else { "/" }
+
+            # Consume remaining request headers
+            while (-not [string]::IsNullOrEmpty($reader.ReadLine())) {}
+
+            if ($method -ne "GET") {
+                $statusLine = "HTTP/1.1 405 Method Not Allowed`r`nContent-Length: 0`r`nConnection: close`r`n`r`n"
+                $bytes = [System.Text.Encoding]::ASCII.GetBytes($statusLine)
+                $stream.Write($bytes, 0, $bytes.Length)
+                $client.Close()
+                continue
+            }
+
+            # Clean and normalize path
+            $cleanPath = $rawPath.Split('?')[0].TrimStart('/')
+            if ([string]::IsNullOrWhiteSpace($cleanPath) -or $cleanPath -eq "/") {
+                $cleanPath = "index.html"
+            }
+
+            $targetPath = [System.IO.Path]::GetFullPath((Join-Path $WebRoot $cleanPath))
             $rootFullPath = [System.IO.Path]::GetFullPath($WebRoot)
 
             if (-not $targetPath.StartsWith($rootFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $response.StatusCode = 403
-                $msg = [System.Text.Encoding]::UTF8.GetBytes("403 Forbidden")
-                $response.ContentLength64 = $msg.Length
-                $response.OutputStream.Write($msg, 0, $msg.Length)
-                $response.OutputStream.Close()
+                $body = [System.Text.Encoding]::UTF8.GetBytes("403 Forbidden")
+                $header = "HTTP/1.1 403 Forbidden`r`nContent-Type: text/plain`r`nContent-Length: $($body.Length)`r`nConnection: close`r`n`r`n"
+                $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($header)
+                $stream.Write($headerBytes, 0, $headerBytes.Length)
+                $stream.Write($body, 0, $body.Length)
+                $client.Close()
                 continue
             }
 
             if (Test-Path -Path $targetPath -PathType Leaf) {
-                try {
-                    $bytes = [System.IO.File]::ReadAllBytes($targetPath)
-                    $response.StatusCode = 200
-                    $response.ContentType = Get-ContentType -FilePath $targetPath
-                    $response.ContentLength64 = $bytes.Length
-                    $response.AddHeader("Cache-Control", "no-cache, no-store, must-revalidate")
-                    $response.OutputStream.Write($bytes, 0, $bytes.Length)
-                } catch {
-                    $response.StatusCode = 500
-                }
+                $fileBytes = [System.IO.File]::ReadAllBytes($targetPath)
+                $contentType = Get-ContentType -FilePath $targetPath
+                $header = "HTTP/1.1 200 OK`r`nContent-Type: $contentType`r`nContent-Length: $($fileBytes.Length)`r`nCache-Control: no-cache`r`nConnection: close`r`n`r`n"
+                $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($header)
+                $stream.Write($headerBytes, 0, $headerBytes.Length)
+                $stream.Write($fileBytes, 0, $fileBytes.Length)
             } else {
-                $response.StatusCode = 404
-                $msg = [System.Text.Encoding]::UTF8.GetBytes("404 File Not Found: $relativePath")
-                $response.ContentType = "text/plain; charset=utf-8"
-                $response.ContentLength64 = $msg.Length
-                $response.OutputStream.Write($msg, 0, $msg.Length)
+                $body = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found: $cleanPath")
+                $header = "HTTP/1.1 404 Not Found`r`nContent-Type: text/plain`r`nContent-Length: $($body.Length)`r`nConnection: close`r`n`r`n"
+                $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($header)
+                $stream.Write($headerBytes, 0, $headerBytes.Length)
+                $stream.Write($body, 0, $body.Length)
             }
 
-            $response.OutputStream.Close()
+            $stream.Flush()
+            $client.Close()
         }
     } catch {
-        Write-Host "Server encountered an error: $_" -ForegroundColor Red
+        Write-Host "Server halted: $_" -ForegroundColor Yellow
     } finally {
-        if ($listener.IsListening) {
-            $listener.Stop()
-        }
-        $listener.Close()
+        $server.Stop()
     }
 }
 
-Start-StaticServer -ListenPort $Port -WebRoot $RootDirectory
+Start-StaticTcpServer -ListenPort $Port -WebRoot $RootDirectory
