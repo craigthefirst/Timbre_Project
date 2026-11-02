@@ -44,7 +44,14 @@ The study investigates how controlled mathematical alterations to the harmonic s
 
 ## How to Run the Sandbox App
 
-### In Any Web Browser:
+### Local Web Server (Recommended)
+Run the built-in PowerShell server script from the repository root:
+```powershell
+.\serve.ps1 -Port 8080
+```
+Then open [http://localhost:8080](http://localhost:8080) in your browser.
+
+### In Any Web Browser directly:
 Open [`sandbox/index.html`](file:///c:/Users/niels/Documents/GitHub/Timbre_Project/sandbox/index.html) directly in Google Chrome, Microsoft Edge, or any modern web browser.
 
 1. Click **"🎵 Load Preset 5s Melody"** (or upload your own WAV/MP3 file).
