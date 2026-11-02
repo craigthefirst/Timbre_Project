@@ -21,7 +21,13 @@ The study investigates how controlled mathematical alterations to the harmonic s
 - [x] **Proposal Analysis & System Planning**: Formulated specifications from the Materials and Measures section and created detailed project architecture.
 - [x] **Interactive Sandbox Application (`sandbox/`)**:
   - **Audio Engine**: Web Audio API DSP pipeline with seamless 5-second looping, master volume, and audio slice scrubber.
-  - **Stimulus Ingestion**: Drag-and-drop file upload (WAV, MP3, FLAC) + built-in 5-second harmonic melody synthesizer.
+  - **Acoustic Instrument Presets**: Built-in 1-click loading of high-fidelity solo acoustic instrument recordings:
+    - *Solo Cello*: J.S. Bach Cello Suite No. 1 in G major, Prélude (BWV 1007), performed by John Michel.
+    - *Solo Violin*: J.S. Bach Partita No. 3 in E major, Preludio (BWV 1006).
+    - *Concert Grand Piano*: J.S. Bach Goldberg Variations, Aria (BWV 988), performed by Kimiko Ishizaka on a Bösendorfer 290 Imperial (Open Goldberg Variations).
+    - *Solo Silver Flute*: Claude Debussy, *Syrinx* (1913), performed by Sarah Bassingthwaite.
+    - *Synthetic Motif*: Standardized reference tone (C Major arpeggio, 12 partials).
+  - **Stimulus Ingestion**: Drag-and-drop file upload (WAV, MP3, FLAC, OGG) with automatic decoding.
   - **Harmonic Corruption Suite**:
     - *Harmonic Stretching*: Simulates acoustic stiff-string dispersion and inharmonicity ($f_k \approx k f_0 \sqrt{1 + B k^2}$).
     - *Harmonic Scrunching*: Compresses partial intervals inward toward the fundamental frequency.

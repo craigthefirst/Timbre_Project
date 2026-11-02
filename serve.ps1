@@ -99,7 +99,7 @@ function Start-StaticTcpServer {
             # Consume remaining request headers
             while (-not [string]::IsNullOrEmpty($reader.ReadLine())) {}
 
-            if ($method -ne "GET") {
+            if ($method -ne "GET" -and $method -ne "HEAD") {
                 $statusLine = "HTTP/1.1 405 Method Not Allowed`r`nContent-Length: 0`r`nConnection: close`r`n`r`n"
                 $bytes = [System.Text.Encoding]::ASCII.GetBytes($statusLine)
                 $stream.Write($bytes, 0, $bytes.Length)
@@ -132,7 +132,9 @@ function Start-StaticTcpServer {
                 $header = "HTTP/1.1 200 OK`r`nContent-Type: $contentType`r`nContent-Length: $($fileBytes.Length)`r`nCache-Control: no-cache`r`nConnection: close`r`n`r`n"
                 $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($header)
                 $stream.Write($headerBytes, 0, $headerBytes.Length)
-                $stream.Write($fileBytes, 0, $fileBytes.Length)
+                if ($method -ne "HEAD") {
+                    $stream.Write($fileBytes, 0, $fileBytes.Length)
+                }
             } else {
                 $body = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found: $cleanPath")
                 $header = "HTTP/1.1 404 Not Found`r`nContent-Type: text/plain`r`nContent-Length: $($body.Length)`r`nConnection: close`r`n`r`n"

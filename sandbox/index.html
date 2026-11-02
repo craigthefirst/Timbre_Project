@@ -37,10 +37,27 @@
             <input type="file" id="fileInput" accept="audio/*" style="display: none;">
           </div>
 
-          <!-- Quick Synthesized Preset -->
-          <div class="preset-actions">
-            <button id="presetMelodyBtn" class="btn btn-primary" type="button" style="width: 100%;">
-              🎵 Load Preset 5s Melody (Harmonic C Major)
+          <!-- Acoustic Instrument Presets -->
+          <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">
+              Acoustic Instrument Melody Presets:
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button class="btn instrument-preset-btn" data-url="samples/cello_bach.ogg" data-name="Solo Cello (Bach Suite 1)" type="button">
+                🎻 Solo Cello
+              </button>
+              <button class="btn instrument-preset-btn" data-url="samples/violin_bach.ogg" data-name="Solo Violin (Bach Partita 3)" type="button">
+                🎻 Solo Violin
+              </button>
+              <button class="btn instrument-preset-btn" data-url="samples/piano_goldberg.ogg" data-name="Concert Piano (Goldberg Aria)" type="button">
+                🎹 Concert Piano
+              </button>
+              <button class="btn instrument-preset-btn" data-url="samples/flute_debussy.ogg" data-name="Solo Flute (Debussy Syrinx)" type="button">
+                🪈 Solo Flute
+              </button>
+            </div>
+            <button id="presetMelodyBtn" class="btn" type="button" style="width: 100%; margin-top: 8px; font-size: 0.8rem;">
+              ⚡ Load Synthetic Motif (Reference)
             </button>
           </div>
 
@@ -224,3 +241,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+

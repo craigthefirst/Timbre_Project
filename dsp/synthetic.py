@@ -113,3 +113,4 @@ def generate_5s_melody(
     full_audio[-crossfade_len:] *= fade_out
 
     return full_audio
+

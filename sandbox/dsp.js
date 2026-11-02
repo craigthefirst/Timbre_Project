@@ -165,6 +165,26 @@ class TimbreAudioEngine {
     const arrayBuffer = await file.arrayBuffer();
     const decodedBuffer = await this.ctx.decodeAudioData(arrayBuffer);
     this.rawBuffer = decodedBuffer;
+    this.sliceStartTime = 0.0;
+    this._updateSliceBuffer();
+    return this.rawBuffer;
+  }
+
+  /**
+   * Fetch an audio file from a relative or absolute URL, decode it, and load it into the engine.
+   * @param {string} url Target URL of the audio asset.
+   * @returns {Promise<AudioBuffer>} Decoded audio buffer.
+   */
+  async loadAudioFromUrl(url) {
+    await this.ensureAudioContext();
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to load audio asset (${url}): HTTP ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const decodedBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+    this.rawBuffer = decodedBuffer;
+    this.sliceStartTime = 0.0;
     this._updateSliceBuffer();
     return this.rawBuffer;
   }
@@ -488,3 +508,4 @@ class TimbreAudioEngine {
 
 // Export for global browser use
 window.TimbreAudioEngine = TimbreAudioEngine;
+

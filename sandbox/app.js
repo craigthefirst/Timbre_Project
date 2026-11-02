@@ -96,6 +96,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * Handle loading an acoustic instrument preset from an audio asset URL.
+   * @param {string} url Relative URL path to sample audio file.
+   * @param {string} instrumentName Display name of the instrument.
+   */
+  async function handleAudioPresetUrl(url, instrumentName) {
+    try {
+      dropzone.querySelector('p').innerHTML = `Loading <strong>${instrumentName}</strong>...`;
+      await engine.loadAudioFromUrl(url);
+      dropzone.querySelector('p').innerHTML = `Loaded: <strong>${instrumentName}</strong> (${engine.rawBuffer.duration.toFixed(1)}s)`;
+      sliceSlider.max = Math.max(0, engine.rawBuffer.duration - 5.0);
+      sliceSlider.value = 0;
+      sliceTimeLabel.textContent = `0.0s - 5.0s (of ${engine.rawBuffer.duration.toFixed(1)}s)`;
+      await engine.play();
+      updatePlayButtonUI();
+    } catch (err) {
+      console.error('Error loading preset audio:', err);
+      alert(`Could not load instrument preset: ${err.message}`);
+    }
+  }
+
+  // Instrument Preset Buttons
+  document.querySelectorAll('.instrument-preset-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const targetBtn = e.currentTarget;
+      const url = targetBtn.dataset.url;
+      const name = targetBtn.dataset.name;
+      document.querySelectorAll('.instrument-preset-btn').forEach(b => b.classList.remove('btn-primary'));
+      targetBtn.classList.add('btn-primary');
+      await handleAudioPresetUrl(url, name);
+    });
+  });
+
   // File Dropzone Listeners
   dropzone.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => {
@@ -489,3 +522,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   drawVisualizer();
 });
+

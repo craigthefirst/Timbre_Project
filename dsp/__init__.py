@@ -36,3 +36,4 @@ __all__ = [
     "generate_complex_tone",
     "generate_5s_melody",
 ]
+

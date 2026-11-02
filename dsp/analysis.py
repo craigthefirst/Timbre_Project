@@ -173,3 +173,4 @@ def extract_timbre_features(audio: np.ndarray, sample_rate: int) -> Dict[str, fl
         "harmonicity_index": compute_harmonicity(audio, sample_rate),
         "rms_energy": float(np.sqrt(np.mean(audio**2))),
     }
+
