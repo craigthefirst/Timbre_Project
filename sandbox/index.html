@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timbre Space Sandbox - Psychoacoustic Audio Workbench</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header & Mode Selector -->
+    <header>
+      <div class="brand">
+        <h1>Timbre Space Sandbox</h1>
+        <p>Acoustic Harmonic Deformation & Experimental Preference Workbench</p>
+      </div>
+      <div class="mode-switch">
+        <button id="modeInspectorBtn" class="mode-btn active" type="button">🔬 Inspector Mode</button>
+        <button id="modeSimulationBtn" class="mode-btn" type="button">🧪 Participant Simulation</button>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <div class="dashboard-grid">
+      <!-- Left Column: Audio Source & Controls -->
+      <div class="col">
+        <!-- Audio Source Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>Audio Stimulus Source</span>
+            <span class="card-badge">5-SECOND EXCERPT</span>
+          </div>
+
+          <!-- File Upload Dropzone -->
+          <div class="upload-dropzone" id="dropzone">
+            <p>Drag & drop an audio file (WAV, MP3, FLAC) or <span>Browse</span></p>
+            <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+          </div>
+
+          <!-- Quick Synthesized Preset -->
+          <div class="preset-actions">
+            <button id="presetMelodyBtn" class="btn btn-primary" type="button" style="width: 100%;">
+              🎵 Load Preset 5s Melody (Harmonic C Major)
+            </button>
+          </div>
+
+          <!-- 5-Second Loop Region Scrubber -->
+          <div class="slice-control">
+            <label>
+              <span>5s Loop Window Position</span>
+              <span id="sliceTimeLabel">0.0s - 5.0s</span>
+            </label>
+            <input type="range" id="sliceSlider" min="0" max="0" step="0.1" value="0">
+          </div>
+        </div>
+
+        <!-- Timbre Corruption Engine Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>Harmonic Corruption Engine</span>
+            <span class="card-badge">1D TRANSFORMATION</span>
+          </div>
+
+          <!-- Corruption Function Type Selector -->
+          <div class="form-group">
+            <label for="corruptionSelect">Harmonic Transformation Function</label>
+            <select id="corruptionSelect">
+              <option value="stretching" selected>Harmonic Stretching (Inharmonicity / Stiff-String Dispersion)</option>
+              <option value="scrunching">Harmonic Scrunching (Partial Interval Compression)</option>
+              <option value="raising">Spectral Tilt (Centroid Raising / High-Frequency Brightness)</option>
+              <option value="odd_even">Odd / Even Harmonic Balance (Cylindrical vs. Open Resonator)</option>
+            </select>
+          </div>
+
+          <!-- 1D Continuous Slider -->
+          <div class="continuous-slider-container">
+            <div class="slider-header">
+              <span id="sliderTitle" class="slider-title">Harmonic Stretching (Inharmonicity / Roughness)</span>
+              <span id="sliderReadout" class="slider-readout">λ = 0.000</span>
+            </div>
+            <input type="range" id="timbreSlider" min="-1.0" max="1.0" step="0.005" value="0.0">
+            <div class="slider-ticks">
+              <span>-1.0 (Compressed)</span>
+              <span class="baseline-indicator">▲ 0.0 (Uncorrupted)</span>
+              <span>+1.0 (Expanded)</span>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+            <button id="resetBaselineBtn" class="btn" type="button">
+              ↺ Reset to Uncorrupted (λ = 0)
+            </button>
+          </div>
+        </div>
+
+        <!-- Master Playback Bar -->
+        <div class="playback-bar">
+          <button id="playBtn" class="play-btn" type="button" title="Play Audio">
+            <span id="playIcon">▶</span>
+          </button>
+          <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span class="loop-badge">🔁 CONTINUOUS 5s LOOP</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Vol</span>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.02" value="0.8" style="width: 80px; height: 4px;">
+              </div>
+            </div>
+            <div style="width: 100%; height: 4px; background: #273554; border-radius: 2px; overflow: hidden;">
+              <div id="loopProgressBar" style="width: 0%; height: 100%; background: var(--accent-cyan); transition: width 0.05s linear;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Visualizer & Experiment Simulation -->
+      <div class="col">
+        <!-- Real-Time FFT & Waveform Visualizer -->
+        <div class="card">
+          <div class="card-title">
+            <span>Real-Time Spectral Visualizer</span>
+            <span class="card-badge">FFT + OSCILLOSCOPE</span>
+          </div>
+
+          <div class="canvas-wrapper">
+            <canvas id="visualizerCanvas"></canvas>
+            <div class="visualizer-overlay">
+              <div class="metric-pill">Centroid: <span id="centroidDisplay">--- Hz</span></div>
+            </div>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">
+            Displays frequency spectrum (gradient bars) and time-domain waveform (cyan trace) updating with the continuous slider in real time.
+          </p>
+        </div>
+
+        <!-- Mode-Specific Container: Inspector Panel -->
+        <div id="inspectorPanel">
+          <div class="card">
+            <div class="card-title">
+              <span>Scientific Inspection Details</span>
+              <span class="card-badge">DSP ANALYSIS</span>
+            </div>
+            <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.6;">
+              <p><strong>Baseline Invariance:</strong> At <code>λ = 0</code>, all filters revert to neutral identity gain, ensuring mathematical recovery of the uncorrupted audio.</p>
+              <p style="margin-top: 8px;"><strong>Perceptual Interaction:</strong> Modulating harmonic frequencies alters auditory beating within Plomp & Levelt critical bandwidths, influencing perceived roughness and tonal fusion.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode-Specific Container: Participant Simulation Panel -->
+        <div id="simulationPanel" style="display: none;">
+          <div class="card trial-box">
+            <div class="card-title">
+              <span>Participant Trial Simulation</span>
+              <span class="card-badge">30s EXPERIMENT</span>
+            </div>
+
+            <p style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 14px;">
+              Simulates a participant trial: applies a hidden, randomized corruption offset. Adjust the continuous slider until the audio sounds optimal or uncorrupted, then submit within 30 seconds.
+            </p>
+
+            <div class="trial-timer">
+              <span style="font-size: 0.85rem; color: var(--text-muted);">Time Remaining:</span>
+              <span id="timerDisplay" class="timer-display">30s</span>
+            </div>
+
+            <div class="timer-progress">
+              <div id="timerProgressBar" class="timer-progress-bar"></div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button id="startTrialBtn" class="btn btn-primary" type="button" style="flex: 1;">
+                ▶ Start 30s Trial
+              </button>
+              <button id="submitTrialBtn" class="btn btn-success" type="button" style="flex: 1; display: none;">
+                ✓ Submit Trial Choice
+              </button>
+            </div>
+
+            <!-- Post-Trial Rating Scales (Materials and Measures) -->
+            <div id="ratingSection" class="rating-section">
+              <div class="rating-group">
+                <h4>1. Rate your enjoyment of this clip (5-Point Likert)</h4>
+                <div class="likert-options">
+                  <button class="likert-btn" data-group="enjoyment" data-value="1" type="button">1<br>Hate it</button>
+                  <button class="likert-btn" data-group="enjoyment" data-value="2" type="button">2<br>Dislike</button>
+                  <button class="likert-btn" data-group="enjoyment" data-value="3" type="button">3<br>Neutral</button>
+                  <button class="likert-btn" data-group="enjoyment" data-value="4" type="button">4<br>Like</button>
+                  <button class="likert-btn" data-group="enjoyment" data-value="5" type="button">5<br>Love it</button>
+                </div>
+              </div>
+
+              <div class="rating-group">
+                <h4>2. Rate your familiarity with this clip (3-Point Scale)</h4>
+                <div class="likert-options">
+                  <button class="likert-btn" data-group="familiarity" data-value="1" type="button">1<br>Never heard before</button>
+                  <button class="likert-btn" data-group="familiarity" data-value="2" type="button">2<br>Heard once or twice</button>
+                  <button class="likert-btn" data-group="familiarity" data-value="3" type="button">3<br>Heard often</button>
+                </div>
+              </div>
+
+              <div id="resultBanner" class="result-banner"></div>
+
+              <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+                <button id="exportLogBtn" class="btn" type="button">
+                  📥 Export Trial Logs (JSON)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Status Bar -->
+    <div class="status-bar">
+      <div>Project: <strong>Mapping Timbre Space</strong></div>
+      <div>Stimuli: <strong>5.0s Continuous Looping Audio</strong></div>
+      <div>Control: <strong>1D Continuous Slider</strong></div>
+    </div>
+  </div>
+
+  <script src="dsp.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
