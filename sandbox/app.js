@@ -36,6 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const resultBanner = document.getElementById('resultBanner');
   const exportLogBtn = document.getElementById('exportLogBtn');
   const centroidDisplay = document.getElementById('centroidDisplay');
+  const exactLambdaInput = document.getElementById('exactLambdaInput');
+  const minBoundInput = document.getElementById('minBoundInput');
+  const maxBoundInput = document.getElementById('maxBoundInput');
+  const applyBoundsBtn = document.getElementById('applyBoundsBtn');
+  const sliderMinLabel = document.getElementById('sliderMinLabel');
+  const sliderMaxLabel = document.getElementById('sliderMaxLabel');
+  const baselineIndicator = document.getElementById('baselineIndicator');
   const canvas = document.getElementById('visualizerCanvas');
   const canvasCtx = canvas.getContext('2d');
 
@@ -219,6 +226,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * Set and configure the continuous slider bounds [minVal, maxVal].
+   * Dynamically adjusts step size, UI tick labels, and baseline position.
+   * @param {number} minVal Minimum scalar bound for lambda.
+   * @param {number} maxVal Maximum scalar bound for lambda.
+   */
+  function updateSliderBounds(minVal, maxVal) {
+    if (isNaN(minVal) || isNaN(maxVal) || minVal >= maxVal) {
+      alert('Invalid bounds: Minimum bound must be strictly less than maximum bound.');
+      return;
+    }
+
+    timbreSlider.min = minVal;
+    timbreSlider.max = maxVal;
+    timbreSlider.step = Math.max(0.001, (maxVal - minVal) / 1000);
+
+    minBoundInput.value = minVal;
+    maxBoundInput.value = maxVal;
+
+    sliderMinLabel.textContent = `${minVal >= 0 ? '+' : ''}${minVal.toFixed(1)}`;
+    sliderMaxLabel.textContent = `${maxVal >= 0 ? '+' : ''}${maxVal.toFixed(1)}`;
+
+    if (minVal <= 0 && maxVal >= 0) {
+      baselineIndicator.style.display = 'inline';
+      baselineIndicator.textContent = '▲ 0.0 (Uncorrupted)';
+    } else {
+      baselineIndicator.style.display = 'none';
+    }
+  }
+
+  // Slider Bounds Toolbar Event Listeners
+  applyBoundsBtn.addEventListener('click', () => {
+    const minVal = parseFloat(minBoundInput.value);
+    const maxVal = parseFloat(maxBoundInput.value);
+    updateSliderBounds(minVal, maxVal);
+  });
+
+  document.querySelectorAll('.bound-preset-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const minVal = parseFloat(e.target.dataset.min);
+      const maxVal = parseFloat(e.target.dataset.max);
+      updateSliderBounds(minVal, maxVal);
+    });
+  });
+
+  // Direct Exact Lambda Input Listener
+  exactLambdaInput.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    if (!isNaN(val)) {
+      const curMin = parseFloat(timbreSlider.min);
+      const curMax = parseFloat(timbreSlider.max);
+      if (val < curMin) {
+        updateSliderBounds(val - 1.0, curMax);
+      } else if (val > curMax) {
+        updateSliderBounds(curMin, val + 1.0);
+      }
+      timbreSlider.value = val;
+      handleSliderChange(val);
+    }
+  });
+
   // 1D Continuous Slider Interaction
   timbreSlider.addEventListener('input', (e) => {
     const sliderVal = parseFloat(e.target.value);
@@ -227,11 +295,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /**
    * Process a change on the 1D continuous slider.
-   * In Inspector mode, slider maps directly to lambda [-1, +1].
+   * In Inspector mode, slider maps directly to lambda in R.
    * In Simulation mode, slider maps relative to the randomized ground truth offset.
-   * @param {number} sliderVal Raw value of the UI slider in [-1.0, 1.0].
+   * @param {number} sliderVal Raw value of the UI slider in [min, max].
    */
   function handleSliderChange(sliderVal) {
+    if (exactLambdaInput && document.activeElement !== exactLambdaInput) {
+      exactLambdaInput.value = sliderVal.toFixed(3);
+    }
+
     if (currentMode === 'inspector') {
       engine.applyContinuousTransformation(sliderVal);
       sliderReadout.textContent = `λ = ${sliderVal >= 0 ? '+' : ''}${sliderVal.toFixed(3)}`;
@@ -265,6 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function setMode(mode) {
     currentMode = mode;
+    const boundsToolbar = document.getElementById('sliderBoundsToolbar');
     if (mode === 'inspector') {
       modeInspectorBtn.classList.add('active');
       modeSimulationBtn.classList.remove('active');
@@ -272,6 +345,8 @@ document.addEventListener('DOMContentLoaded', () => {
       simulationPanel.style.display = 'none';
       sliderReadout.style.display = 'block';
       resetBaselineBtn.style.display = 'inline-flex';
+      if (exactLambdaInput) exactLambdaInput.parentElement.style.display = 'flex';
+      if (boundsToolbar) boundsToolbar.style.display = 'flex';
       stopTrial();
       handleSliderChange(parseFloat(timbreSlider.value));
     } else {
@@ -280,6 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
       inspectorPanel.style.display = 'none';
       simulationPanel.style.display = 'block';
       resetBaselineBtn.style.display = 'none';
+      if (exactLambdaInput) exactLambdaInput.parentElement.style.display = 'none';
+      if (boundsToolbar) boundsToolbar.style.display = 'none';
       stopTrial();
     }
   }

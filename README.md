@@ -33,6 +33,12 @@ The study investigates how controlled mathematical alterations to the harmonic s
     - *Harmonic Scrunching*: Compresses partial intervals inward toward the fundamental frequency.
     - *Spectral Tilt ("Raising")*: Modulates spectral centroid and high-frequency energy.
     - *Odd/Even Balance*: Alters ratio between odd and even harmonics (clarinet vs. open resonator).
+  - **Arbitrary $\lambda \in \mathbb{R}$ & Configurable Slider Bounds**:
+    - Full support for arbitrary real values $\lambda \in (-\infty, +\infty)$ without artificial $[-1, 1]$ constraints.
+    - Custom Min and Max bound inputs with dynamic step adjustment.
+    - Quick bound range presets ($\pm 1, \pm 2, \pm 5, \pm 10, [0, 5]$).
+    - Direct numerical "Exact $\lambda$" input box with auto-expanding bounds.
+    - Adaptive baseline indicator showing the precise location of uncorrupted $\lambda = 0$.
   - **Real-Time Visualizer**: Dual FFT frequency spectrum and oscilloscope waveform rendered on HTML5 Canvas with live spectral centroid readout.
   - **Dual Operating Modes**:
     - *Inspector Mode*: Direct view of $\lambda$, parameter adjustments, and instant uncorrupted reset.

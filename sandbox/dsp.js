@@ -307,8 +307,9 @@ class TimbreAudioEngine {
 
   /**
    * Apply the continuous scalar transformation (lambda) to the real-time DSP filter graph.
-   * When lambda = 0, the audio returns strictly to its uncorrupted state.
-   * @param {number} lambda Continuous slider parameter in [-1.0, 1.0].
+   * Supports any real number lambda in (-inf, +inf). When lambda = 0, the audio returns strictly
+   * to its uncorrupted state. Safe bounds are applied to filter frequencies and gains.
+   * @param {number} lambda Continuous scalar parameter in R.
    */
   applyContinuousTransformation(lambda) {
     this.lambdaValue = lambda;
@@ -316,6 +317,7 @@ class TimbreAudioEngine {
 
     const time = this.ctx.currentTime;
     const rampTime = 0.03; // Smooth 30ms ramp prevents audible zipper noise
+    const maxFreq = (this.ctx.sampleRate / 2) - 200;
 
     // Reset all DSP parameters to neutral state first
     this.highShelfFilter.gain.setTargetAtTime(0, time, rampTime);
@@ -323,6 +325,7 @@ class TimbreAudioEngine {
 
     for (const hf of this.harmonicFilters) {
       hf.gain.setTargetAtTime(0, time, rampTime);
+      hf.frequency.setTargetAtTime(this.baseFundamentalFreq, time, rampTime);
     }
     for (const df of this.dispersionFilters) {
       df.frequency.setTargetAtTime(800, time, rampTime);
@@ -334,14 +337,15 @@ class TimbreAudioEngine {
       return;
     }
 
-    // Apply specific transformation
+    // Apply specific transformation across arbitrary real scalar lambda
     switch (this.currentCorruptionType) {
       case 'raising':
       case 'spectral_tilt': {
         // High-frequency shelf boost/cut; inverse low-shelf to tilt spectrum around 1kHz
-        const shelfGain = lambda * 18.0; // +/- 18dB
+        // Scale smoothly with lambda, clamped to safe hearing threshold [-40 dB, +40 dB]
+        const shelfGain = Math.max(-40.0, Math.min(40.0, lambda * 12.0));
         this.highShelfFilter.gain.setTargetAtTime(shelfGain, time, rampTime);
-        this.lowShelfFilter.gain.setTargetAtTime(-shelfGain * 0.6, time, rampTime);
+        this.lowShelfFilter.gain.setTargetAtTime(-shelfGain * 0.5, time, rampTime);
         break;
       }
 
@@ -352,32 +356,31 @@ class TimbreAudioEngine {
         for (let i = 0; i < this.harmonicFilters.length; i++) {
           const harmonicNum = i + 1;
           const isEven = (harmonicNum % 2 === 0);
-          const filterGain = isEven ? (-lambda * 15.0) : (lambda * 15.0);
-          this.harmonicFilters[i].gain.setTargetAtTime(filterGain, time, rampTime);
+          const filterGain = isEven ? (-lambda * 12.0) : (lambda * 12.0);
+          const clampedGain = Math.max(-36.0, Math.min(24.0, filterGain));
+          this.harmonicFilters[i].gain.setTargetAtTime(clampedGain, time, rampTime);
         }
         break;
       }
 
       case 'stretching': {
-        // Harmonic Stretching & Inharmonicity:
+        // Harmonic Stretching & Inharmonicity (stiff-string dispersion):
         // Activate dispersion allpass network to skew phase and harmonic intervals
         const dispersionStrength = Math.abs(lambda);
         for (let i = 0; i < this.dispersionFilters.length; i++) {
-          const targetQ = 0.1 + dispersionStrength * 8.0;
-          const targetFreq = 400 + i * (600 + lambda * 300);
+          const targetQ = Math.min(18.0, 0.1 + dispersionStrength * 4.0);
+          const targetFreq = Math.max(60, Math.min(maxFreq, 400 + i * (600 + lambda * 250)));
           this.dispersionFilters[i].Q.setTargetAtTime(targetQ, time, rampTime);
-          this.dispersionFilters[i].frequency.setTargetAtTime(Math.max(80, targetFreq), time, rampTime);
+          this.dispersionFilters[i].frequency.setTargetAtTime(targetFreq, time, rampTime);
         }
         // Slightly detune harmonic band filters to simulate inharmonic partial drift
         for (let i = 0; i < this.harmonicFilters.length; i++) {
           const k = i + 1;
-          const detuneShift = lambda * Math.pow(k, 1.8) * 12.0; // Inharmonic quadratic stretch
-          this.harmonicFilters[i].frequency.setTargetAtTime(
-            Math.max(20, this.baseFundamentalFreq * k + detuneShift),
-            time,
-            rampTime
-          );
-          this.harmonicFilters[i].gain.setTargetAtTime(lambda * 8.0, time, rampTime);
+          const detuneShift = lambda * Math.pow(k, 1.8) * 10.0;
+          const targetHk = Math.max(20, Math.min(maxFreq, this.baseFundamentalFreq * k + detuneShift));
+          this.harmonicFilters[i].frequency.setTargetAtTime(targetHk, time, rampTime);
+          const hGain = Math.max(-24.0, Math.min(24.0, lambda * 6.0));
+          this.harmonicFilters[i].gain.setTargetAtTime(hGain, time, rampTime);
         }
         break;
       }
@@ -386,10 +389,13 @@ class TimbreAudioEngine {
         // Harmonic Scrunching: compress partial spacing inward towards fundamental
         for (let i = 0; i < this.harmonicFilters.length; i++) {
           const k = i + 1;
-          // Partials compress inward towards f0
-          const scrunchedFreq = this.baseFundamentalFreq + (k - 1) * this.baseFundamentalFreq * (1.0 - lambda * 0.4);
-          this.harmonicFilters[i].frequency.setTargetAtTime(Math.max(20, scrunchedFreq), time, rampTime);
-          this.harmonicFilters[i].gain.setTargetAtTime(lambda * 10.0, time, rampTime);
+          // Partials compress inward towards f0 with arbitrary lambda
+          const factor = Math.max(0.05, 1.0 - lambda * 0.3);
+          const scrunchedFreq = this.baseFundamentalFreq + (k - 1) * this.baseFundamentalFreq * factor;
+          const targetFreq = Math.max(20, Math.min(maxFreq, scrunchedFreq));
+          this.harmonicFilters[i].frequency.setTargetAtTime(targetFreq, time, rampTime);
+          const sGain = Math.max(-24.0, Math.min(24.0, lambda * 6.0));
+          this.harmonicFilters[i].gain.setTargetAtTime(sGain, time, rampTime);
         }
         break;
       }

@@ -93,13 +93,42 @@
           <div class="continuous-slider-container">
             <div class="slider-header">
               <span id="sliderTitle" class="slider-title">Harmonic Stretching (Inharmonicity / Roughness)</span>
-              <span id="sliderReadout" class="slider-readout">λ = 0.000</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="exactLambdaInput" style="font-size: 0.75rem; color: var(--text-muted);">Exact λ:</label>
+                <input type="number" id="exactLambdaInput" step="0.01" value="0.00" style="width: 75px; padding: 3px 6px; font-family: var(--font-mono); font-size: 0.85rem; background: #000; color: #38bdf8; border: 1px solid var(--border-color); border-radius: 4px; text-align: right;">
+                <span id="sliderReadout" class="slider-readout">λ = 0.000</span>
+              </div>
             </div>
-            <input type="range" id="timbreSlider" min="-1.0" max="1.0" step="0.005" value="0.0">
-            <div class="slider-ticks">
-              <span>-1.0 (Compressed)</span>
-              <span class="baseline-indicator">▲ 0.0 (Uncorrupted)</span>
-              <span>+1.0 (Expanded)</span>
+
+            <input type="range" id="timbreSlider" min="-2.0" max="2.0" step="0.004" value="0.0">
+
+            <div class="slider-ticks" id="sliderTicksContainer">
+              <span id="sliderMinLabel">-2.0 (Compressed)</span>
+              <span id="baselineIndicator" class="baseline-indicator">▲ 0.0 (Uncorrupted)</span>
+              <span id="sliderMaxLabel">+2.0 (Expanded)</span>
+            </div>
+
+            <!-- Custom Bounds & Range Configuration Toolbar -->
+            <div id="sliderBoundsToolbar" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border-color); font-size: 0.78rem;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: var(--text-muted); font-weight: 600;">Slider Bounds:</span>
+                <label style="display: inline-flex; align-items: center; gap: 3px;">Min
+                  <input type="number" id="minBoundInput" value="-2.0" step="0.5" style="width: 58px; padding: 2px 4px; background: var(--bg-surface); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; font-family: var(--font-mono);">
+                </label>
+                <label style="display: inline-flex; align-items: center; gap: 3px;">Max
+                  <input type="number" id="maxBoundInput" value="2.0" step="0.5" style="width: 58px; padding: 2px 4px; background: var(--bg-surface); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; font-family: var(--font-mono);">
+                </label>
+                <button id="applyBoundsBtn" class="btn" type="button" style="padding: 2px 8px; font-size: 0.72rem;">Set Bounds</button>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <span style="color: var(--text-muted); font-size: 0.72rem;">Presets:</span>
+                <button class="btn bound-preset-btn" data-min="-1" data-max="1" type="button" style="padding: 2px 6px; font-size: 0.72rem;">±1</button>
+                <button class="btn bound-preset-btn" data-min="-2" data-max="2" type="button" style="padding: 2px 6px; font-size: 0.72rem;">±2</button>
+                <button class="btn bound-preset-btn" data-min="-5" data-max="5" type="button" style="padding: 2px 6px; font-size: 0.72rem;">±5</button>
+                <button class="btn bound-preset-btn" data-min="-10" data-max="10" type="button" style="padding: 2px 6px; font-size: 0.72rem;">±10</button>
+                <button class="btn bound-preset-btn" data-min="0" data-max="5" type="button" style="padding: 2px 6px; font-size: 0.72rem;">[0, 5]</button>
+              </div>
             </div>
           </div>
 
