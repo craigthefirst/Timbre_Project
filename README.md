@@ -53,19 +53,26 @@ The study investigates how controlled mathematical alterations to the harmonic s
   - `dsp/synthetic.py`: Synthetic complex-tone melody generators producing standardized 5-second clips.
   - `tests/test_dsp.py`: Comprehensive test suite verifying identity preservation and mathematical deformation.
   - Rigorous docstrings across every function.
+- [x] **Automated GitHub Pages Deployment**: GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) deploying the interactive sandbox live on every push.
 - [ ] **Stimulus Corpus Selection**: Sourcing 1,000 candidate melody pool across historical eras and genres.
 - [ ] **Neural Network Architecture**: Formulating the predictive model for harmonic feature interactions with psychological profiles.
 
 ---
 
-## How to Run the Sandbox App
+## Live Web App & How to Run
 
-### Local Web Server (Recommended)
+### 🌐 Live Public URL (GitHub Pages)
+The interactive sandbox is hosted publicly at:
+**[https://craigthefirst.github.io/Timbre_Project/](https://craigthefirst.github.io/Timbre_Project/)**
+
+Accessible from any device, laptop, tablet, or mobile phone on any network.
+
+### Local Web Server
 Run the built-in PowerShell server script from the repository root:
 ```powershell
-.\serve.ps1 -Port 8080
+.\serve.ps1 -Port 8765
 ```
-Then open [http://localhost:8080](http://localhost:8080) in your browser.
+Then open [http://localhost:8765](http://localhost:8765) in your browser.
 
 ### In Any Web Browser directly:
 Open [`sandbox/index.html`](file:///c:/Users/niels/Documents/GitHub/Timbre_Project/sandbox/index.html) directly in Google Chrome, Microsoft Edge, or any modern web browser.
