@@ -240,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Scrubber & Seeking
+  let seekDebounceTimeout = null;
   sliceSlider.addEventListener('mousedown', () => { isUserDraggingScrubber = true; });
   sliceSlider.addEventListener('touchstart', () => { isUserDraggingScrubber = true; });
   window.addEventListener('mouseup', () => { isUserDraggingScrubber = false; });
@@ -252,8 +253,20 @@ document.addEventListener('DOMContentLoaded', () => {
       engine.setSliceStartTime(val);
       sliceTimeLabel.textContent = `${val.toFixed(1)}s - ${(val + 5.0).toFixed(1)}s (of ${totalDuration.toFixed(1)}s)`;
     } else {
-      engine.seekTrack(val);
       sliceTimeLabel.textContent = `${formatTime(val)} / ${formatTime(totalDuration)}`;
+      // Debounce continuous seek calls to prevent rapid AudioBufferSourceNode recreations
+      if (seekDebounceTimeout) clearTimeout(seekDebounceTimeout);
+      seekDebounceTimeout = setTimeout(() => {
+        engine.seekTrack(val);
+      }, 35);
+    }
+  });
+
+  sliceSlider.addEventListener('change', (e) => {
+    const val = parseFloat(e.target.value);
+    if (engine.playbackMode === 'full_track') {
+      if (seekDebounceTimeout) clearTimeout(seekDebounceTimeout);
+      engine.seekTrack(val);
     }
   });
 
