@@ -23,7 +23,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const volumeSlider = document.getElementById('volumeSlider');
   const sliceSlider = document.getElementById('sliceSlider');
   const sliceTimeLabel = document.getElementById('sliceTimeLabel');
+  const sliceControlTitle = document.getElementById('sliceControlTitle');
   const loopProgressBar = document.getElementById('loopProgressBar');
+  const playback5sBtn = document.getElementById('playback5sBtn');
+  const playbackFullBtn = document.getElementById('playbackFullBtn');
+  const loopBadgeBtn = document.getElementById('loopBadgeBtn');
+  const trackTimeDisplay = document.getElementById('trackTimeDisplay');
   const modeInspectorBtn = document.getElementById('modeInspectorBtn');
   const modeSimulationBtn = document.getElementById('modeSimulationBtn');
   const simulationPanel = document.getElementById('simulationPanel');
@@ -50,6 +55,52 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentMode = 'inspector'; // 'inspector' | 'simulation'
   let simulationActive = false;
   let trialTimerId = null;
+  let isUserDraggingScrubber = false;
+
+  /**
+   * Format a duration in seconds into a standard mm:ss timestamp string.
+   * @param {number} sec Time in seconds.
+   * @returns {string} Formatted timestamp string.
+   */
+  function formatTime(sec) {
+    if (isNaN(sec) || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+
+  /**
+   * Configure the playback mode UI and audio engine (5s Loop vs Continuous Full Track).
+   * @param {'5s_loop'|'full_track'} mode Target playback mode.
+   */
+  function setPlaybackModeUI(mode) {
+    engine.setPlaybackMode(mode);
+    const totalDuration = engine.rawBuffer ? engine.rawBuffer.duration : 5.0;
+
+    if (mode === '5s_loop') {
+      playback5sBtn.classList.add('btn-primary');
+      playbackFullBtn.classList.remove('btn-primary');
+      loopBadgeBtn.textContent = '🔁 5s LOOP';
+      loopBadgeBtn.style.color = 'var(--accent-emerald)';
+      sliceControlTitle.textContent = '5s Loop Window Position';
+      sliceSlider.min = 0;
+      sliceSlider.max = Math.max(0, totalDuration - 5.0);
+      sliceSlider.step = 0.1;
+      sliceSlider.value = engine.sliceStartTime;
+      sliceTimeLabel.textContent = `${engine.sliceStartTime.toFixed(1)}s - ${(engine.sliceStartTime + 5.0).toFixed(1)}s (of ${totalDuration.toFixed(1)}s)`;
+    } else {
+      playbackFullBtn.classList.add('btn-primary');
+      playback5sBtn.classList.remove('btn-primary');
+      loopBadgeBtn.textContent = '▶ FULL TRACK';
+      loopBadgeBtn.style.color = 'var(--accent-cyan)';
+      sliceControlTitle.textContent = 'Track Seek & Position';
+      sliceSlider.min = 0;
+      sliceSlider.max = totalDuration;
+      sliceSlider.step = 0.25;
+      sliceSlider.value = engine.trackPlaybackOffset;
+      sliceTimeLabel.textContent = `${formatTime(engine.trackPlaybackOffset)} / ${formatTime(totalDuration)}`;
+    }
+  }
   let trialRemainingSeconds = 30;
   const trialTotalSeconds = 30;
   let trialStartTimestamp = 0;
@@ -79,7 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
       playBtn.setAttribute('title', 'Pause Audio');
     } else {
       playIcon.textContent = '▶';
-      playBtn.setAttribute('title', 'Play Audio (5s Loop)');
+      const modeText = engine.playbackMode === '5s_loop' ? '5s Loop' : 'Continuous Track';
+      playBtn.setAttribute('title', `Play Audio (${modeText})`);
     }
   }
 
@@ -92,9 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dropzone.querySelector('p').innerHTML = `Decoding <strong>${file.name}</strong>...`;
       await engine.loadAudioFile(file);
       dropzone.querySelector('p').innerHTML = `Loaded: <strong>${file.name}</strong> (${engine.rawBuffer.duration.toFixed(1)}s)`;
-      sliceSlider.max = Math.max(0, engine.rawBuffer.duration - 5.0);
-      sliceSlider.value = 0;
-      sliceTimeLabel.textContent = `0.0s - 5.0s (of ${engine.rawBuffer.duration.toFixed(1)}s)`;
+      setPlaybackModeUI(engine.playbackMode);
       await engine.play();
       updatePlayButtonUI();
     } catch (err) {
@@ -113,9 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dropzone.querySelector('p').innerHTML = `Loading <strong>${instrumentName}</strong>...`;
       await engine.loadAudioFromUrl(url);
       dropzone.querySelector('p').innerHTML = `Loaded: <strong>${instrumentName}</strong> (${engine.rawBuffer.duration.toFixed(1)}s)`;
-      sliceSlider.max = Math.max(0, engine.rawBuffer.duration - 5.0);
-      sliceSlider.value = 0;
-      sliceTimeLabel.textContent = `0.0s - 5.0s (of ${engine.rawBuffer.duration.toFixed(1)}s)`;
+      setPlaybackModeUI(engine.playbackMode);
       await engine.play();
       updatePlayButtonUI();
     } catch (err) {
@@ -165,9 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       await engine.generatePresetMelody();
       dropzone.querySelector('p').innerHTML = `Loaded: <strong>Synthesized 5s Harmonic Motif (C Major)</strong>`;
-      sliceSlider.max = 0;
-      sliceSlider.value = 0;
-      sliceTimeLabel.textContent = `0.0s - 5.0s (5.0s Clip)`;
+      setPlaybackModeUI(engine.playbackMode);
       await engine.play();
       updatePlayButtonUI();
     } finally {
@@ -176,7 +222,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Playback & Looping Controls
+  // Playback Mode Buttons & Badges
+  playback5sBtn.addEventListener('click', () => setPlaybackModeUI('5s_loop'));
+  playbackFullBtn.addEventListener('click', () => setPlaybackModeUI('full_track'));
+  loopBadgeBtn.addEventListener('click', () => {
+    setPlaybackModeUI(engine.playbackMode === '5s_loop' ? 'full_track' : '5s_loop');
+  });
+
+  // Playback & Volume Controls
   playBtn.addEventListener('click', () => {
     engine.togglePlay();
     updatePlayButtonUI();
@@ -186,15 +239,61 @@ document.addEventListener('DOMContentLoaded', () => {
     engine.setMasterVolume(parseFloat(e.target.value));
   });
 
+  // Scrubber & Seeking
+  sliceSlider.addEventListener('mousedown', () => { isUserDraggingScrubber = true; });
+  sliceSlider.addEventListener('touchstart', () => { isUserDraggingScrubber = true; });
+  window.addEventListener('mouseup', () => { isUserDraggingScrubber = false; });
+  window.addEventListener('touchend', () => { isUserDraggingScrubber = false; });
+
   sliceSlider.addEventListener('input', (e) => {
     const val = parseFloat(e.target.value);
-    engine.setSliceStartTime(val);
-    sliceTimeLabel.textContent = `${val.toFixed(1)}s - ${(val + 5.0).toFixed(1)}s`;
+    const totalDuration = engine.rawBuffer ? engine.rawBuffer.duration : 5.0;
+    if (engine.playbackMode === '5s_loop') {
+      engine.setSliceStartTime(val);
+      sliceTimeLabel.textContent = `${val.toFixed(1)}s - ${(val + 5.0).toFixed(1)}s (of ${totalDuration.toFixed(1)}s)`;
+    } else {
+      engine.seekTrack(val);
+      sliceTimeLabel.textContent = `${formatTime(val)} / ${formatTime(totalDuration)}`;
+    }
   });
 
-  engine.onProgressUpdate = (elapsed, duration) => {
-    const percent = (elapsed / duration) * 100;
-    loopProgressBar.style.width = `${percent}%`;
+  const progressBarContainer = document.getElementById('progressBarContainer');
+  if (progressBarContainer) {
+    progressBarContainer.addEventListener('click', (e) => {
+      if (engine.rawBuffer) {
+        const rect = progressBarContainer.getBoundingClientRect();
+        const clickRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const duration = engine.playbackMode === '5s_loop' ? (engine.activeSliceBuffer ? engine.activeSliceBuffer.duration : 5.0) : engine.rawBuffer.duration;
+        const targetTime = clickRatio * duration;
+        if (engine.playbackMode === 'full_track') {
+          engine.seekTrack(targetTime);
+          sliceSlider.value = targetTime;
+          sliceTimeLabel.textContent = `${formatTime(targetTime)} / ${formatTime(duration)}`;
+        }
+      }
+    });
+  }
+
+  engine.onPlaybackEnd = () => {
+    updatePlayButtonUI();
+    loopProgressBar.style.width = '0%';
+    if (trackTimeDisplay) {
+      trackTimeDisplay.textContent = `0:00 / ${formatTime(engine.rawBuffer ? engine.rawBuffer.duration : 0)}`;
+    }
+  };
+
+  engine.onProgressUpdate = (elapsed, duration, mode) => {
+    const percent = duration > 0 ? (elapsed / duration) * 100 : 0;
+    loopProgressBar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+
+    if (trackTimeDisplay) {
+      trackTimeDisplay.textContent = `${formatTime(elapsed)} / ${formatTime(duration)}`;
+    }
+
+    if (mode === 'full_track' && !isUserDraggingScrubber) {
+      sliceSlider.value = elapsed;
+      sliceTimeLabel.textContent = `${formatTime(elapsed)} / ${formatTime(duration)}`;
+    }
   };
 
   // Corruption Function Selector
@@ -390,6 +489,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Apply starting corruption
     handleSliderChange(0.0);
+
+    // Ensure audio is in 5-second loop mode for participant trial
+    setPlaybackModeUI('5s_loop');
 
     // Ensure audio is actively playing in continuous loop
     if (!engine.isPlaying) {

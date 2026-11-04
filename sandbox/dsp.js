@@ -44,6 +44,8 @@ class TimbreAudioEngine {
     // State variables
     this.isPlaying = false;
     this.isLooping = true;
+    this.playbackMode = 'full_track'; // '5s_loop' | 'full_track'
+    this.trackPlaybackOffset = 0.0;
     this.sliceStartTime = 0.0;
     this.sliceDuration = 5.0; // 5 seconds per proposal specification
     this.playbackStartTime = 0;
@@ -52,6 +54,7 @@ class TimbreAudioEngine {
     this.baseFundamentalFreq = 261.63; // C4 default
 
     this.onProgressUpdate = null;
+    this.onPlaybackEnd = null;
     this._animationFrameId = null;
   }
 
@@ -165,6 +168,7 @@ class TimbreAudioEngine {
     const arrayBuffer = await file.arrayBuffer();
     const decodedBuffer = await this.ctx.decodeAudioData(arrayBuffer);
     this.rawBuffer = decodedBuffer;
+    this.trackPlaybackOffset = 0.0;
     this.sliceStartTime = 0.0;
     this._updateSliceBuffer();
     return this.rawBuffer;
@@ -184,6 +188,7 @@ class TimbreAudioEngine {
     const arrayBuffer = await response.arrayBuffer();
     const decodedBuffer = await this.ctx.decodeAudioData(arrayBuffer);
     this.rawBuffer = decodedBuffer;
+    this.trackPlaybackOffset = 0.0;
     this.sliceStartTime = 0.0;
     this._updateSliceBuffer();
     return this.rawBuffer;
@@ -246,6 +251,7 @@ class TimbreAudioEngine {
     }
 
     this.rawBuffer = audioBuffer;
+    this.trackPlaybackOffset = 0.0;
     this.sliceStartTime = 0.0;
     this._updateSliceBuffer();
     return this.rawBuffer;
@@ -282,8 +288,8 @@ class TimbreAudioEngine {
 
     this.activeSliceBuffer = sliceBuffer;
 
-    // If already playing, restart loop with the new slice
-    if (this.isPlaying) {
+    // If already playing in 5s_loop mode, restart loop with the new slice
+    if (this.isPlaying && this.playbackMode === '5s_loop') {
       this.play();
     }
   }
@@ -294,6 +300,32 @@ class TimbreAudioEngine {
    */
   setSliceStartTime(startTime) {
     this._updateSliceBuffer(startTime);
+  }
+
+  /**
+   * Set playback mode to either continuous 5-second loop ('5s_loop') or continuous full-track playback ('full_track').
+   * @param {'5s_loop'|'full_track'} mode Playback mode string.
+   */
+  setPlaybackMode(mode) {
+    if (mode !== '5s_loop' && mode !== 'full_track') return;
+    if (this.playbackMode === mode) return;
+
+    this.playbackMode = mode;
+    if (this.isPlaying) {
+      this.play();
+    }
+  }
+
+  /**
+   * Seek playback to a specific offset in seconds for full-track mode.
+   * @param {number} seconds Target timestamp in seconds.
+   */
+  seekTrack(seconds) {
+    if (!this.rawBuffer) return;
+    this.trackPlaybackOffset = Math.max(0, Math.min(seconds, this.rawBuffer.duration - 0.05));
+    if (this.isPlaying && this.playbackMode === 'full_track') {
+      this.play();
+    }
   }
 
   /**
@@ -403,37 +435,17 @@ class TimbreAudioEngine {
   }
 
   /**
-   * Start playback of the active 5-second slice in continuous loop mode.
+   * Start playback of audio in either continuous 5-second loop mode or continuous full-track mode.
    * @returns {Promise<void>}
    */
   async play() {
     await this.ensureAudioContext();
-    if (!this.activeSliceBuffer) return;
+    if (!this.rawBuffer) return;
 
-    this.stop(); // Stop any active playback
-
-    this.sourceNode = this.ctx.createBufferSource();
-    this.sourceNode.buffer = this.activeSliceBuffer;
-    this.sourceNode.loop = this.isLooping;
-    this.sourceNode.loopStart = 0;
-    this.sourceNode.loopEnd = this.activeSliceBuffer.duration;
-
-    // Connect source into the DSP filter chain
-    this.sourceNode.connect(this._firstDspNode);
-
-    this.playbackStartTime = this.ctx.currentTime;
-    this.sourceNode.start(0);
-    this.isPlaying = true;
-
-    this._startProgressTracker();
-  }
-
-  /**
-   * Stop active audio playback.
-   */
-  stop() {
+    // Stop active node cleanly without resetting trackPlaybackOffset
     if (this.sourceNode) {
       try {
+        this.sourceNode.onended = null;
         this.sourceNode.stop();
         this.sourceNode.disconnect();
       } catch (e) {
@@ -441,6 +453,69 @@ class TimbreAudioEngine {
       }
       this.sourceNode = null;
     }
+
+    this.sourceNode = this.ctx.createBufferSource();
+
+    if (this.playbackMode === '5s_loop') {
+      if (!this.activeSliceBuffer) {
+        this._updateSliceBuffer();
+      }
+      this.sourceNode.buffer = this.activeSliceBuffer;
+      this.sourceNode.loop = this.isLooping;
+      this.sourceNode.loopStart = 0;
+      this.sourceNode.loopEnd = this.activeSliceBuffer.duration;
+      this.sourceNode.connect(this._firstDspNode);
+
+      this.playbackStartTime = this.ctx.currentTime;
+      this.sourceNode.start(0);
+    } else {
+      // Full-track continuous playback mode
+      this.sourceNode.buffer = this.rawBuffer;
+      this.sourceNode.loop = false;
+      this.sourceNode.connect(this._firstDspNode);
+
+      const offset = Math.max(0, Math.min(this.trackPlaybackOffset, this.rawBuffer.duration - 0.05));
+      this.playbackStartTime = this.ctx.currentTime;
+      this.trackPlaybackOffset = offset;
+      this.sourceNode.start(0, offset);
+
+      this.sourceNode.onended = () => {
+        if (this.isPlaying && this.playbackMode === 'full_track') {
+          const elapsed = (this.ctx.currentTime - this.playbackStartTime) + this.trackPlaybackOffset;
+          if (elapsed >= this.rawBuffer.duration - 0.15) {
+            this.isPlaying = false;
+            this.trackPlaybackOffset = 0.0;
+            this._stopProgressTracker();
+            if (this.onPlaybackEnd) this.onPlaybackEnd();
+          }
+        }
+      };
+    }
+
+    this.isPlaying = true;
+    this._startProgressTracker();
+  }
+
+  /**
+   * Stop active audio playback and record position if in full track mode.
+   */
+  stop() {
+    if (this.sourceNode) {
+      try {
+        this.sourceNode.onended = null;
+        this.sourceNode.stop();
+        this.sourceNode.disconnect();
+      } catch (e) {
+        // Node may have already ended
+      }
+      this.sourceNode = null;
+    }
+
+    if (this.isPlaying && this.playbackMode === 'full_track' && this.ctx && this.rawBuffer) {
+      const elapsedSinceStart = this.ctx.currentTime - this.playbackStartTime;
+      this.trackPlaybackOffset = Math.min(this.rawBuffer.duration, this.trackPlaybackOffset + elapsedSinceStart);
+    }
+
     this.isPlaying = false;
     this._stopProgressTracker();
   }
@@ -457,16 +532,27 @@ class TimbreAudioEngine {
   }
 
   /**
-   * Start loop progress tracking animation.
+   * Start loop or track progress tracking animation.
    * @private
    */
   _startProgressTracker() {
     this._stopProgressTracker();
     const update = () => {
-      if (this.isPlaying && this.activeSliceBuffer && this.ctx) {
-        const elapsed = (this.ctx.currentTime - this.playbackStartTime) % this.activeSliceBuffer.duration;
+      if (this.isPlaying && this.ctx) {
+        let elapsed = 0;
+        let duration = 5.0;
+
+        if (this.playbackMode === '5s_loop' && this.activeSliceBuffer) {
+          duration = this.activeSliceBuffer.duration;
+          elapsed = (this.ctx.currentTime - this.playbackStartTime) % duration;
+        } else if (this.playbackMode === 'full_track' && this.rawBuffer) {
+          duration = this.rawBuffer.duration;
+          elapsed = (this.ctx.currentTime - this.playbackStartTime) + this.trackPlaybackOffset;
+          if (elapsed > duration) elapsed = duration;
+        }
+
         if (this.onProgressUpdate) {
-          this.onProgressUpdate(elapsed, this.activeSliceBuffer.duration);
+          this.onProgressUpdate(elapsed, duration, this.playbackMode);
         }
         this._animationFrameId = requestAnimationFrame(update);
       }

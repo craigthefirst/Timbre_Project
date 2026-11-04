@@ -239,6 +239,16 @@ header {
   color: var(--accent-emerald);
   font-weight: 600;
   letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-mono);
+}
+
+.loop-badge:hover {
+  background: rgba(56, 189, 248, 0.25);
+  color: var(--accent-cyan);
+}
+  letter-spacing: 0.05em;
 }
 
 .slice-control {

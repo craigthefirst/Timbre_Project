@@ -33,6 +33,10 @@ The study investigates how controlled mathematical alterations to the harmonic s
     - *Harmonic Scrunching*: Compresses partial intervals inward toward the fundamental frequency.
     - *Spectral Tilt ("Raising")*: Modulates spectral centroid and high-frequency energy.
     - *Odd/Even Balance*: Alters ratio between odd and even harmonics (clarinet vs. open resonator).
+  - **Dual Playback Modes (5s Loop vs Continuous Track)**:
+    - *🔁 5s Loop Mode*: Continuously loops a 5-second excerpt with seamless boundary crossfades, simulating the experimental trial setup.
+    - *▶ Continuous Track Mode*: Plays the full uploaded or preset piece from start to finish without 5-second looping, allowing evaluation of harmonic transformations across entire musical movements and changing registers.
+    - Interactive seek bar, timestamp display (`mm:ss / mm:ss`), and click-to-seek progress bar.
   - **Arbitrary $\lambda \in \mathbb{R}$ & Configurable Slider Bounds**:
     - Full support for arbitrary real values $\lambda \in (-\infty, +\infty)$ without artificial $[-1, 1]$ constraints.
     - Custom Min and Max bound inputs with dynamic step adjustment.
